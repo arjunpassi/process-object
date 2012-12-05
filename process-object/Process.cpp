@@ -9,60 +9,99 @@
 #include <iostream>
 #include <string.h>
 #include <algorithm>
+#include <stdexcept>
 //
 
 using namespace std;
 
  /* Initialize the process, create input/output pipes */
     Process::Process(const std::vector<std::string> &args)
-    {
-    	//char *newargv[] = { NULL };
-   		char *newenviron[] = { NULL };
-   		
-   		pipe(readpipe);
-   		pipe(writepipe);
-   		m_pread = fdopen(readpipe[0], "r");\
-   		
-   		//std::vector<std::string> = {"first arg", "second arg", "third"}
-		std::vector<const char *> cargs;
-		std::transform(args.begin(), args.end(), std::back_inserter(cargs),
-				 []( const std::string s) { return s.c_str(); /*what would you return here?*/ } );
-			cargs.push_back(NULL); // exec expects a NULL terminated array
-   		
-   		m_name = cargs[0];
-   		
-   		m_pid = fork();
-   		
-   		if (m_pid == 0) // this is child
-   		{
-   		
-   			dup2(writepipe[0], 0);
-   			close(writepipe[1]);
-   			
-   			dup2(readpipe[1], 1);
-     		close(readpipe[0]);
-     		
-   			//m_pread = cargs[0];  s.c_str()
-   			
-   			execve(m_name.c_str(), const_cast<char**>(&cargs[0]), newenviron); // ./dispatcher.cpp ./generator ./consume
-   			
-			//close(writepipe[0]);
-			//close(writepipe[1]);
-			//close(readpipe[0]);
-			//close(readpipe[1]);
+    {	
+		try
+		{
+				//char *newargv[] = { NULL };
+	   		char *newenviron[] = { NULL };
+	   		
+	   		pipe(readpipe);
+	   		pipe(writepipe);
+	   		m_pread = fdopen(readpipe[0], "r");\
+	   		
+	   		//std::vector<std::string> = {"first arg", "second arg", "third"}
+			std::vector<const char *> cargs;
+			std::transform(args.begin(), args.end(), std::back_inserter(cargs),
+					 []( const std::string s) { return s.c_str(); /*what would you return here?*/ } );
+				cargs.push_back(NULL); // exec expects a NULL terminated array
+	   		
+	   		m_name = cargs[0];
+	   		
+	   		m_pid = fork();
+	   		
+	   		if (m_pid == 0) // this is child
+	   		{
+	   		
+	   			try
+	   			{
+	   				dup2(writepipe[0], 0);
+	   				close(writepipe[1]);
+	   			}
+	   			
+	   			catch (const char* e)
+	   			{
+	   				std::cerr << strerror(errno);
+	   			}
+		 		
+		 		try
+	   			{
+	   				dup2(readpipe[1], 1);
+		 			close(readpipe[0]);
+	   			}
+	   			
+	   			catch (const char* e)
+	   			{
+	   				std::cerr << strerror(errno);
+	   			}
+		 		
+	   			//m_pread = cargs[0];  s.c_str()
+	   			
+	   			try
+	   			{
+	   				execve(m_name.c_str(), const_cast<char**>(&cargs[0]), newenviron);
+	   			}
+	   			
+	   			catch (const char* e)
+	   			{
+	   				std::cerr << strerror(errno);
+	   			}
+	   			
+	   			//execve(m_name.c_str(), const_cast<char**>(&cargs[0]), newenviron); // ./dispatcher.cpp ./generator ./consume
+	   			
+				//close(writepipe[0]);
+				//close(writepipe[1]);
+				//close(readpipe[0]);
+				//close(readpipe[1]);
 			
-			exit(0);
-   		}
-   		
-   		else  // parent process
-   		{	
-   			close(writepipe[0]);
-			close(readpipe[1]);
+				exit(0);
+	   		}
+	   		
+	   		else if (m_pid > 0) // parent process
+	   		{	
+	   			close(writepipe[0]);
+				close(readpipe[1]);
 			
-			std::cout << "Parent[" <<  getpid() << "] Process constructor" << std::endl;
-   		}
-   			
-
+				std::cout << "Parent[" <<  getpid() << "] Process constructor" << std::endl;
+	   		}
+	   		
+	   		else
+	   		{
+	   			throw std::runtime_error(strerror(errno));	
+			}
+	   		
+		}
+		
+		catch (const char* e)
+		{
+			std::cerr << e;
+		}
     }
     
     /* Close any open file streams or file descriptors,
